@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block content %}
+	<h2>Your personalized dashboard @ मंच -  the IoT platform!</h2>
+	
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+	<script type=text/javascript>
+		$(function() {
+		  $("input[name='toggle_perm']").bind('click', function(){
+			var item = $(this).attr('id');
+			$.getJSON('/toggle_app_permission', {
+			  app_id: item,
+			}, function(data) {
+				//alert("#perm_"+item);
+				document.getElementById("perm_"+item).innerHTML = data.result;
+			  //$("#perm_"+item).html(data.result);
+				if (data.result == "False")
+				{
+					//$("#"+item).val("Grant Permission");
+					//$("#"+item).removeClass().addClass("btn btn-success");
+					document.getElementById(item).value = "Grant Permission";
+					document.getElementById(item).className = "btn btn-success";
+				}
+				else
+				{
+					//$("#"+item).val("Revoke Permission");
+					//$("#"+item).removeClass().addClass("btn btn-danger");
+					document.getElementById(item).value = "Revoke Permission;
+					document.getElementById(item).className = "btn btn-danger";
+				}
+			});
+			return false;
+		  });
+		});
+	</script>
+	
+	<script type=text/javascript>
+		$(function() {
+		  $("input[name='toggle_act']").bind('click', function(){
+			var item = $(this).attr('id');
+			$.getJSON('/toggle_iot_activation', {
+			  iot_id: item,
+			}, function(data) {
+				//alert("#act_"+item);
+				//alert(data.result);
+				document.getElementById("act_"+item).innerHTML = data.result;
+			  //$("#act_"+item).html(data.result);
+				if (data.result == "False")
+				{
+					//$("#"+item).val("Activate Device");	// these horrible ajax methods fail if "id" of html tag contain colon
+					//$("#"+item).removeClass().addClass("btn btn-success");
+					document.getElementById(item).value = "Activate Device";
+					document.getElementById(item).className = "btn btn-success";
+				}
+				else
+				{
+					//$("#"+item).val("Deactivate Device");
+					//$("#"+item).removeClass().addClass("btn btn-danger");
+					document.getElementById(item).value = "Deactivate Device";
+					document.getElementById(item).className = "btn btn-danger";
+				}
+			});
+			return false;
+		  });
+		});
+	</script>
+	
+	<script type=text/javascript>
+		$(function() {
+		  $("input[name='delete_app']").bind('click', function(event){
+		  if (confirm('Are you sure you want to delete this app?')) {
+			  var item = $(this).attr('id');
+				$.getJSON('/delete_app', {
+				  app_id: item,
+				}, function(data) {
+					//alert(data.result);
+					location.reload(true);	// so that uncached table entries are visible next time
+				});
+				return false;
+				}
+			  });
+		});
+	</script>
+	
+	{% if current_user.is_authenticated() %}
+		<h2>Welcome {{ current_user.get_id() }} !</h2>
+		<p>
+		{% if current_user.is_developer() %}
+			As a <i><b>Developer</b></i>, you can see your published apps here. To update previous apps and upload new apps, use <i>Upload Apps</i>
+
+			{% block developer_apps %}
+				<table class="table table-hover" align="center">
+				<tr><th>App</th>
+					<th>Developer</th>
+					<th>Description</th>
+					<th>Latest App Update Date</th>
+					<th>#Downloads</th>
+					<th>App Zip</th>
+					<th>Delete App</th></tr>
+				{% if third_party_apps %}
+				{% for third_party_app in third_party_apps %}
+				<tr><td>{{ third_party_app._id }}</td>
+					<td>{{ third_party_app.developer_id }}</td>
+					<td>{{ third_party_app.description }}</td>
+					<td>{{ third_party_app.date_modified }}</td>
+					<td>{{ third_party_app.num_downloads }}</td>
+					<td><a href="{{url_for('uploaded_file', filename= third_party_app.app_zip ) }}"> {{ third_party_app.app_zip }} </a></td>
+					<td><input type="button" name="delete_app" class="btn btn-danger" id="{{ third_party_app._id }}" value="delete app"></td></tr>
+				{% endfor %}
+				{% endif %}
+				</table>
+			{% endblock %}
+		
+		{% else %}
+			As our valued <i><b>Customer</b></i>, your attached IoT devices and third party apps are displayed here. To upload new IoT data, use <i>Upload IoI Data</i>
+			
+			{% block customer_apps %}
+				<table class="table table-hover" align="center">
+				<tr><th>App</th>
+					<th>Developer</th>
+					<th>Description</th>
+					<th>Latest App Update Date</th>
+					<th>#Downloads</th>
+					<th>Permissions</th>
+					<th>Change Permissions</th></tr>
+				{% if third_party_apps %}
+				{% for third_party_app in third_party_apps %}
+				<tr><td>{{ third_party_app._id }}</td>
+					<td>{{ third_party_app.developer_id }}</td>
+					<td>{{ third_party_app.description }}</td>
+					<td>{{ third_party_app.date_modified }}</td>
+					<td>{{ third_party_app.num_downloads }}</td>
+					<td id="perm_{{ third_party_app._id }}">{{ third_party_app.permission }}</td>
+					<td><input type="button" name="toggle_perm" id="{{ third_party_app._id }}">
+					<script type=text/javascript>
+					if (document.getElementById("perm_{{ third_party_app._id }}").innerHTML == "False")
+					{
+						document.getElementById("{{ third_party_app._id }}").value = "Grant Permission";
+						document.getElementById("{{ third_party_app._id }}").className = "btn btn-success";
+					}
+					else
+					{
+						document.getElementById("{{ third_party_app._id }}").value = "Revoke Permission";
+						document.getElementById("{{ third_party_app._id }}").className = "btn btn-danger";
+					}
+					</script>
+					</td></tr>
+				{% endfor %}
+				{% endif %}
+				</table>
+			{% endblock %}
+			
+			<hr><br><br>
+			
+			{% block customer_devices %}
+			{% if iot_devices %}
+				<table class="table table-hover" align="center">
+				<tr><th>Device</th>
+					<th>MAC Address</th>
+					<th>Activation Status</th>
+					<th>Change Activation</th></tr>
+				{% for iot_device in iot_devices %}
+				<tr><td>{{ iot_device.IoT_device_name }}</td>
+					<td>{{ iot_device._id }}</td>
+					<td id="act_{{ iot_device._id }}">{{ iot_device.isActivated }}</td>
+					<td><input type="button" name="toggle_act" id="{{ iot_device._id }}">
+					<script type=text/javascript>
+					if (document.getElementById("act_{{ iot_device._id }}").innerHTML == "False")
+					{
+						document.getElementById("{{ iot_device._id }}").value = "Activate Device";
+						document.getElementById("{{ iot_device._id }}").className = "btn btn-success";
+					}
+					else
+					{
+						document.getElementById("{{ iot_device._id }}").value = "Deactivate Device";
+						document.getElementById("{{ iot_device._id }}").className = "btn btn-danger";
+					}
+					</script>
+					</td></tr>
+				{% endfor %}
+			</table>
+			{% endif %}
+			{% endblock %}
+			
+			
+		{% endif %}
+		</p>
+	{% endif %}
+{% endblock %}
+
+
+
+

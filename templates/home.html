@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block content %}
+	<h2>You are at the homepage of मंच -  the IoT platform!</h2>
+	{% if current_user.is_authenticated() %}
+		<h2>Welcome {{ current_user.get_id() }} !</h2>
+		<p>
+		{% if current_user.is_developer() %}
+			As a <i><b>Developer</b></i>, you can upload apps and use this PaaS platform to deploy code in a plethora of software stacks and varying computational resources.
+		{% else %}
+			As our valued <i><b>Customer</b></i>, you can attach new IoT devices, upload data, and user native as well as third party apps.
+		{% endif %}
+		</p>
+	{% endif %}
+{% endblock %}
