@@ -13,8 +13,8 @@ DATABASE = MongoClient()[DB_NAME]
 USERS_TABLE = "users"
 USERS_APPS_TABLE = "users_apps"
 APPS_TABLE = "apps"
-USERS_IOT_TABLE = "users_iot"	# contains _id (mac address), IoT_device_name, user_id, isActivated (can be True/False)
-IOT_DATA_TABLE = "iot_data"		
+USERS_IOT_TABLE = "users_iot"	# contains _id (mac address), IoT_device_name, user_id, isActivated (can be True/False), token (for authentication when sending IoT data)
+IOT_DATA_TABLE = "iot_data"		# contains iot_id, user_id, data		
 
 
 #USERS_COLLECTION = DATABASE.users

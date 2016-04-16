@@ -2,7 +2,7 @@
 from my_init import app
 from my_init import lm
 
-from flask import request, redirect, render_template, url_for, flash, g, jsonify, send_from_directory
+from flask import request, redirect, render_template, url_for, flash, g, jsonify, send_from_directory, make_response
 from flask.ext.login import login_user, logout_user, login_required, current_user
 
 from forms import LoginForm, SignupForm, UploadAppForm, ConfigureIoTDeviceForm
@@ -13,7 +13,7 @@ import db_api
 
 import datetime
 import logging
-import os
+import os, random, string
 
 from werkzeug.security import generate_password_hash
 from werkzeug import  secure_filename
@@ -80,7 +80,8 @@ def toggle_iot_activation():
 				result = db_api.update_one(app.config['DATABASE'], app.config['USERS_IOT_TABLE'], {"_id": iot_id, "user_id": current_user.get_id()}, { "$set": {"isActivated": False} } )
 				return jsonify(result="False")
 			else:
-				result = db_api.update_one(app.config['DATABASE'], app.config['USERS_IOT_TABLE'], {"_id": iot_id, "user_id": current_user.get_id()}, { "$set": {"isActivated": True} } )
+				token = gen_token(32);
+				result = db_api.update_one(app.config['DATABASE'], app.config['USERS_IOT_TABLE'], {"_id": iot_id, "user_id": current_user.get_id()}, { "$set": {"isActivated": True, "token": token} } )	# each new acivation changes the unique token for the identification of the IoT device
 				return jsonify(result="True")
 		else:
 			flash("You do not own the IoT deivce " + iot_id, category='error')
@@ -224,14 +225,32 @@ def upload_app():
 	return render_template('home.html')
 
 	
-@app.route('/upload_iot_data', methods=['GET', 'POST'])
-@login_required
+@app.route('/upload_iot_data/', methods=['GET'])
 def upload_iot_data():
-	if current_user.is_developer() is False:
-		return render_template('upload_iot_data.html')
-	flash("Only Customers (non developers) can upload IoT Data!", category='error')
-	return render_template('home.html')
+	#if current_user.is_developer() is False:
+	#	return render_template('upload_iot_data.html')
+	#flash("Only Customers (non developers) can upload IoT Data!", category='error')
+	#return render_template('home.html')
 
+	user_id = request.args.get('user_id')
+	iot_id = request.args.get('iot_id')
+	token = request.args.get('token')
+	data = request.args.get('data')
+	isAuthenticated = db_api.exists(app.config['DATABASE'], app.config['USERS_IOT_TABLE'], {"_id": iot_id, "user_id": user_id, "token": token})	# device should be activated for listening to new data
+	if isAuthenticated is False:
+		flash("Unauthorized: IoT data transfer to "+ iot_id + " failed", category='error')
+		return make_response(render_template('error.html'), 403)
+	
+	isActivated = db_api.exists(app.config['DATABASE'], app.config['USERS_IOT_TABLE'], {"_id": iot_id, "user_id": user_id, "isActivated": True})
+	if isActivated is False:
+		flash("Inactivate device: IoT data transfer to "+ iot_id + " failed", category='error')
+		return make_response(render_template('upload_iot_data.html'))
+	
+	db_api.insert(app.config['DATABASE'], app.config['IOT_DATA_TABLE'], {"iot_id": iot_id, "user_id": user_id, "data": data})
+	flash("IoT data transfered to IoT device id "+ iot_id, category='success')
+	return make_response(render_template('upload_iot_data.html'))
+	
+	
 
 @app.route('/configure_iot_device', methods=['GET', 'POST'])
 @login_required
@@ -244,7 +263,8 @@ def configure_iot_device():
 				flash("IoT device already activated with customer " + IoT_device['user_id'], category='error')
 				return render_template('configure_iot_device.html', title='configure IoT Device', form=form)
 			else:
-				db_api.insert(app.config['DATABASE'], app.config['USERS_IOT_TABLE'], {"_id": form.macAddress.data, "user_id": current_user.get_id(), "IoT_device_name": form.IoT_device_name.data, "isActivated": form.isActivated.data})
+				token = gen_token(32);
+				db_api.insert(app.config['DATABASE'], app.config['USERS_IOT_TABLE'], {"_id": form.macAddress.data, "user_id": current_user.get_id(), "IoT_device_name": form.IoT_device_name.data, "isActivated": form.isActivated.data, "token": token})
 				flash("IoT Device registered successfully!", category='success')
 				return redirect(request.args.get("next") or url_for("dashboard"))
 					
@@ -308,7 +328,8 @@ def deleteFile(uploadDir, fileName):
 	os.remove(os.path.join(uploadDir, fileName))
 
 
-
+def gen_token(N):
+	return ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(N))
 
 
 
